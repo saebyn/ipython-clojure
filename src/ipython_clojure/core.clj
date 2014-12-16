@@ -7,7 +7,7 @@
            [clj-time.format :as time-format]
            [com.keminglabs.zmq-async.core :refer [register-socket!]]
            [clojure.core.async :refer [sliding-buffer >! <! go chan close!]])
-  (:import [org.jeromq ZMQ])
+  (:import [org.zeromq ZMQ])
   (:gen-class :main true))
 
 (defn prep-config [args]
