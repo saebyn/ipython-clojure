@@ -39,11 +39,11 @@ RUN cd git &&  git clone https://github.com/hhland/ipython-clojure.git && cd  ip
 ENV PATH $PATH:$CLOJURE_HOME/bin
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
 
-RUN ipython profile create clojure
-ADD add/ipython_config.py /root/.ipython/profile_clojure/ipython_config.py
+RUN ipython profile create clojure && cd /root/.ipython/profile_clojure && mv ipython_config.py ipython_config.py.bak && mv static/custom/custom.js static/custom/custom.js.bak && mv static/custom/custom.css static/custom/custom.css.bak
+ADD add/ipython_config.py //root/.ipython/profile_clojure/
 ADD add/custom.js //root/.ipython/profile_clojure/static/custom/
 ADD add/custom.css //root/.ipython/profile_clojure/static/custom/
-ADD add/tutorial.ipynb  /d/notebook/
+
 
 EXPOSE 8888
 
