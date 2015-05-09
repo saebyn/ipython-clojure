@@ -1,0 +1,5 @@
+{
+        "argv": ["/d/build/ipython_clojure/bin/ipython-clojure","{connection_file}"],
+        "display_name": "Clojure 1.6.0",
+        "language": "clojure"
+}

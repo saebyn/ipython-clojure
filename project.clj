@@ -8,6 +8,7 @@
                  [org.zeromq/jeromq "0.3.4"]
                  [cheshire "5.3.1"]
                  [clj-time "0.7.0"]
+                 [com.taoensso/timbre "3.4.0"]
                  [org.zeromq/cljzmq "0.1.4" :exclusions [org.zeromq/jzmq]]
                  [org.clojure/data.json "0.2.4"]]
   :aot [ipython-clojure.core]

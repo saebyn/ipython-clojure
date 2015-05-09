@@ -5,10 +5,15 @@
            [zeromq.zmq :as zmq]
            [clj-time.core :as time]
            [clj-time.format :as time-format]
+           [taoensso.timbre :as timbre]
            [com.keminglabs.zmq-async.core :refer [register-socket!]]
            [clojure.core.async :refer [sliding-buffer >! <! go chan close!]])
   (:import [org.zeromq ZMQ])
   (:gen-class :main true))
+
+
+(timbre/refer-timbre)
+
 
 (defn prep-config [args]
   (-> args first slurp json/read-str walk/keywordize-keys))
@@ -51,11 +56,11 @@
     header))
 
 (defn send-message-piece [socket msg]
-;  (println "Sending piece " msg)
+  (debug "Sending piece" msg)
   (zmq/send socket (.getBytes msg) zmq/send-more))
 
 (defn finish-message [socket msg]
-;  (println "Sending message " msg)
+  (debug "Sending message" msg)
   (zmq/send socket (.getBytes msg)))
 
 (defn kernel-info-reply [message socket]
@@ -71,16 +76,20 @@
     (send-message-piece socket metadata)
     (finish-message socket content)))
 
+
 (defn read-blob [socket]
-  (let [part (zmq/receive socket)
-        blob (apply str (map char part))]
-    blob))
+  (let [part (zmq/receive socket)]
+    (try
+      (String. part "UTF-8")
+      (catch Exception e
+        (error e "Failed to read blob from part" part)
+        (throw e)))))
+
 
 (defn read-until-delimiter [socket]
   (let [preamble (doall (drop-last
                          (take-while (comp not #(= "<IDS|MSG>" %))
                                      (repeatedly #(read-blob socket)))))]
-;    (println "PREABMLE:" preamble)
     preamble))
 
 (defn new-header [msg_type session-id]
@@ -188,8 +197,10 @@
           "kernel_info_request" (kernel-info-reply message shell-socket)
           "execute_request" (execute-request message)
           (do
-            (println "Message type" msg-type "not handled yet. Exiting.")
-            (println "Message dump:" message)
+            (error 
+              "Message type not handled yet. Exiting."
+              {:message-type msg-type
+               :message-dump message})
             (System/exit -1)))))))
 
 (defrecord Heartbeat [addr]
@@ -202,19 +213,6 @@
           (let [message (zmq/receive socket)]
             (zmq/send socket message))))))
 
-(defrecord Shell [shell-addr iopub-addr]
-  Runnable
-  (run [this]
-    (let [context (zmq/context 1)
-          shell-socket (doto (zmq/socket context :router)
-                         (zmq/bind shell-addr))
-          iopub-socket (doto (zmq/socket context :pub)
-                         (zmq/bind iopub-addr))
-          shell-handler (configure-shell-handler shell-socket iopub-socket)]
-      (while (not (.. Thread currentThread isInterrupted))
-        (let [message (read-message shell-socket)]
-          (println "Receieved message on shell socket: " message)
-          (shell-handler message))))))
 
 (defn shell-loop [shell-addr iopub-addr]
   (let [context (zmq/context 1)
@@ -225,18 +223,25 @@
         shell-handler (configure-shell-handler shell-socket iopub-socket)]
     (while (not (.. Thread currentThread isInterrupted))
       (let [message (read-message shell-socket)]
-        (println "Receieved message on shell socket: " message)
+        (debug "Receieved message on shell socket:" message)
         (shell-handler message)))))
+
+
+(defrecord Shell [shell-addr iopub-addr]
+  Runnable
+  (run [this]
+    (shell-loop shell-addr iopub-addr)))
+
 
 (defn -main [& args]
   (let [hb-addr (address (prep-config args) :hb_port)
         shell-addr (address (prep-config args) :shell_port)
         iopub-addr (address (prep-config args) :iopub_port)]
-    (println (prep-config args))
-    (println (str "Connecting heartbeat to " hb-addr))
+    (info "Recieved configuration" (prep-config args))
+    (info "Connecting heartbeat to" hb-addr)
     (-> hb-addr Heartbeat. Thread. .start)
-    (println (str "Connecting shell to " shell-addr))
-    (println (str "Connecting iopub to " iopub-addr))
+    (debug "Connecting shell to " shell-addr)
+    (debug "Connecting iopub to " iopub-addr)
     (shell-loop shell-addr iopub-addr)))
 
 
